@@ -1,0 +1,17 @@
+{
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typegen": "typechain --target ethers-v6 --out-dir src/types/contracts src/abi/*.json"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "ethers": "^6.13.5",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@typechain/ethers-v6": "^0.5.1",
+    "tsx": "^4.19.2",
+    "typechain": "^8.3.2"
+  }
+}
