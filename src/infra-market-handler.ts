@@ -30,8 +30,39 @@ export class InfraMarketHandler {
   ) {}
 
   public init = async () => {
-    // TODO: add queryFilter on markets
     this.#initEventLUT();
+    await this.#filterMarkets();
+  };
+
+  #filterMarkets = async () => {
+    const markets = await this.infraMarket.queryFilter(
+      this.infraMarket.filters.MarketCreated2()
+    );
+
+    for (const market of markets) {
+      const { state, remaining } = await this.infraMarket
+        .status(market.args.tradingAddr)
+        .then((s) => ({
+          state: Number(s.currentState) as InfraMarketState,
+          remaining: Number(s.secsRemaining),
+        }));
+
+      if (state === InfraMarketState.Closed) {
+        continue;
+      }
+
+      if (state === InfraMarketState.Callable) {
+        if (remaining === 0) {
+          this.#escape(market.args.tradingAddr);
+          continue;
+        }
+
+        this.#activeMarkets[market.args.tradingAddr].escapeTimer = setTimeout(
+          () => this.#escape(market.args.tradingAddr),
+          remaining * 1000
+        );
+      }
+    }
   };
 
   #initEventLUT = async () => {
@@ -44,7 +75,6 @@ export class InfraMarketHandler {
       if (this.#activeEventLUT[log.topics[0]]) {
         return this.#activeEventLUT[log.topics[0]]!(log);
       }
-      //TODO: add escapability check
     });
   };
 
@@ -64,12 +94,14 @@ export class InfraMarketHandler {
       this.#activeMarkets[callEvt.args.tradingAddr] = {
         outcomes: [callEvt.args.winner],
       };
-      return;
+    } else {
+      this.#activeMarkets[callEvt.args.tradingAddr].outcomes.push(
+        callEvt.args.winner
+      );
     }
+    clearTimeout(this.#activeMarkets[callEvt.args.tradingAddr]?.escapeTimer);
 
-    this.#activeMarkets[callEvt.args.tradingAddr].outcomes.push(
-      callEvt.args.winner
-    );
+    this.#scheduleClose(callEvt.args.tradingAddr);
   };
 
   #onRemove = (log: Log) => {
@@ -84,6 +116,28 @@ export class InfraMarketHandler {
     this.#activeMarkets[revealEvt.args.trading].outcomes.push(
       revealEvt.args.outcome
     );
+
+    this.#ifDeclare(revealEvt.args.trading);
+  };
+
+  #ifDeclare = async (tradingAddr: string) => {
+    if (this.#activeMarkets[tradingAddr].declared) return;
+
+    const { currentState } = await this.infraMarket.status(tradingAddr);
+    if (Number(currentState) === InfraMarketState.Declarable) {
+      this.#declare(tradingAddr);
+    }
+  };
+
+  #declare = (tradingAddr: string) => {
+    const outcomes = this.#activeMarkets[tradingAddr].outcomes;
+    this.txQueue.push(
+      this.infraMarket.declare,
+      tradingAddr,
+      outcomes,
+      this.txQueue.actor.address
+    );
+    this.#activeMarkets[tradingAddr].declared = true;
   };
 
   #close = (tradingAddr: string) =>
@@ -93,12 +147,28 @@ export class InfraMarketHandler {
       this.txQueue.actor.address
     );
 
-  #declare = (tradingAddr: string) => {
-    // this.infraMarket.declare();
-  };
-
   #sweep = (tradingAddr: string) => {
     // this.infraMarket.sweep();
+  };
+
+  #escape = (tradingAddr: string) => {
+    this.txQueue.push(this.infraMarket.escape, tradingAddr);
+  };
+
+  #scheduleClose = async (tradingAddr: string) => {
+    const { currentState, secsRemaining } =
+      await this.infraMarket.status(tradingAddr);
+
+    if (Number(currentState) === InfraMarketState.Whinging) {
+      clearTimeout(this.#activeMarkets[tradingAddr]?.closeTimer);
+
+      this.#activeMarkets[tradingAddr].closeTimer = setTimeout(
+        () => {
+          this.#close(tradingAddr);
+        },
+        Number(secsRemaining) * 1000
+      );
+    }
   };
 
   readonly #eventLUT: EventLUT = [
@@ -108,10 +178,4 @@ export class InfraMarketHandler {
     [this.infraMarket.filters.CampaignEscaped(), this.#onRemove],
     [this.infraMarket.filters.CommitmentRevealed(), this.#onReveal],
   ];
-
-  readonly #actionLUT = {
-    [InfraMarketState.Closable]: this.#close,
-    [InfraMarketState.Declarable]: this.#declare,
-    [InfraMarketState.Sweeping]: this.#sweep,
-  };
 }
