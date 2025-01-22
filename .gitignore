@@ -1,4 +1,6 @@
 node_modules
 .env
-src/types/contracts/
+service/types/contracts/
 dist/
+out/
+cache/

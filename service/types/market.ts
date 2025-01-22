@@ -6,6 +6,7 @@ export type ActiveMarkets = {
     outcomes: string[];
     escapeTimer?: NodeJS.Timeout;
     closeTimer?: NodeJS.Timeout;
+    reveals?: { [key: string]: string };
     declared?: boolean;
   };
 };

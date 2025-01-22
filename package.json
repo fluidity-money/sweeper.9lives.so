@@ -2,7 +2,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "typegen": "typechain --target ethers-v6 --out-dir src/types/contracts src/abi/*.json"
+    "typegen": "typechain --target ethers-v6 --out-dir service/types/contracts service/abi/*.json"
   },
   "dependencies": {
     "dotenv": "^16.4.7",

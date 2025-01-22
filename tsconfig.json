@@ -3,10 +3,10 @@
     "target": "ES2022",
     "module": "commonjs",
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "service",
     "strict": true,
     "esModuleInterop": true,
     "useDefineForClassFields": false
   },
-  "include": ["src/**/*"]
+  "include": ["service/**/*"]
 }

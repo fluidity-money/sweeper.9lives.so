@@ -18,9 +18,11 @@ export const getConfig = (): Config => ({
   RPC_URL: mustEnv("RPC_URL"),
   WSS_URL: mustEnv("WSS_URL"),
   INFRA_MARKET_ADDRESS: mustEnv("INFRA_MARKET_ADDRESS"),
+  BATCH_SWEEPER_ADDRESS: mustEnv("BATCH_SWEEPER_ADDRESS"),
   ACTOR_PRIVATE_KEY: mustEnv("ACTOR_PRIVATE_KEY"),
   GAS_RATIO: BigInt(Number(process.env.GAS_RATIO)) || 20n,
   CONFIRMATIONS: Number(process.env.CONFIRMATIONS) || 1,
+  RETRY_INTERVAL: Number(process.env.RETRY_INTERVAL) || 1000,
 });
 
 export class AsyncNonceWallet extends ethers.Wallet {

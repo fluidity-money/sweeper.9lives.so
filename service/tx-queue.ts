@@ -40,6 +40,7 @@ export class TxQueue extends Logger {
 
   #estimate = async (txBody: ContractTransaction) => {
     const fee = await this.actor.provider!.getFeeData();
+    // TODO: check fees logic for arbitrum nitro
 
     const extraFee = { ...fee };
 
