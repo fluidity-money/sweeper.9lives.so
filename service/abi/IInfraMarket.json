@@ -201,6 +201,25 @@
   },
   {
     "type": "function",
+    "name": "epochNumber",
+    "inputs": [
+      {
+        "name": "trading",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "epochNo",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "escape",
     "inputs": [
       {

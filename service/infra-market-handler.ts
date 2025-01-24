@@ -199,20 +199,20 @@ export class InfraMarketHandler extends Logger {
       (committerAddr) => reveals[committerAddr] !== declaredWinner
     );
 
-    //TODO: get current market epoch using public getter or direct slot access
-    // const epochNo = 0;
+    const epochNo = await this.infraMarket.epochNumber(tradingAddr);
 
-    // const victimsAddresses = victims.map(
-    //   (committerAddr) => reveals[committerAddr]
-    // );
-    // this.txQueue.push(
-    //   this.batchSweeper.sweepBatch,
-    //   this.infraMarket.target,
-    //   tradingAddr,
-    //   epochNo,
-    //   victimsAddresses,
-    //   this.txQueue.actor.address
-    // );
+    const victimsAddresses = victims.map(
+      (committerAddr) => reveals[committerAddr]
+    );
+
+    this.txQueue.push(
+      this.batchSweeper.sweepBatch,
+      this.infraMarket.target,
+      tradingAddr,
+      epochNo,
+      victimsAddresses,
+      this.txQueue.actor.address
+    );
   };
 
   #escape = (tradingAddr: string) => {

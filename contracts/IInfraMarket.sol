@@ -195,6 +195,10 @@ interface IInfraMarket {
      */
     function enable_contract(bool status) external returns (bool);
 
+    function epochNumber(
+        address trading
+    ) external view returns (uint256 epochNo);
+
     event InfraMarketEnabled(bool indexed status);
 
     event MarketCreated2(
