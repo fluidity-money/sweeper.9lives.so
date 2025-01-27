@@ -15,6 +15,6 @@ start_anvil() {
 
 start_anvil
 
-npx mocha -r tsx test/market.test.ts --timeout 0
+npm run test
 
 kill $ANVIL_PID

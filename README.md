@@ -1,66 +1,101 @@
-## Foundry
+# Sweeper - 9Lives Protocol Automation Service
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-Foundry consists of:
+Automated transaction management system for 9Lives protocol campaigns. Handles critical lifecycle operations including position closing, dispute resolution, and batch slashing on Arbitrum Stylus.
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+## Features
 
-## Documentation
+### Core Components
 
-https://book.getfoundry.sh/
+- **Event Orchestrator**  
+  Real-time monitoring of protocol events (`MarketCreated2`, `CallMade`, `CommitmentRevealed`) with state machine transitions
+- **Transaction Pipeline**  
+  Gas-optimized batched transaction processing (`close`, `declare`, `sweepBatch`)
+- **Mass Action Engine**  
+  Parallelized settlement system for large-scale position management (optional)
 
-## Usage
+## Prerequisites
 
-### Build
+- [Foundry](https://book.getfoundry.sh/) (forge >= 0.2.0, anvil >= 0.2.0) for contract compilation and local testnet
+- Node.js v18+
 
-```shell
-$ forge build
+## Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Configuration setup
+cp .env.example .env  # Update with your credentials
+
+# Build contracts and generate TypeScript types
+forge build
+./typegen.sh  # Generates TypeChain bindings for contracts
+
+# Build project
+npm run build
+
+# Start service
+npm start
 ```
 
-### Test
+## Configuration
 
-```shell
-$ forge test
+### Environment Variables
+
+```ini
+# Required
+RPC_URL="arbitrum_rpc_endpoint"
+WSS_URL="arbitrum_websocket_endpoint"
+INFRA_MARKET_ADDRESS="0x...market_address"
+BATCH_SWEEPER_ADDRESS="0x...sweeper_address"
+ACTOR_PRIVATE_KEY="operator_wallet_key"
+
+# Network settings
+GAS_RATIO=20              # Base gas multiplier
+CONFIRMATIONS=5              # Required block confirmations
+RETRY_INTERVAL=2000       # Retry interval in milliseconds
 ```
 
-### Format
+## Testing
 
-```shell
-$ forge fmt
+To run tests using the local Anvil node:
+
+```bash
+# Make the test script executable
+chmod +x tests.sh
+
+# Run tests
+./tests.sh
 ```
 
-### Gas Snapshots
+The test script will:
 
-```shell
-$ forge snapshot
+1. Build contracts using Forge
+2. Generate TypeChain types
+3. Start a local Anvil node
+4. Run the test suite
+5. Clean up the Anvil process
+
+## Available Commands
+
+```bash
+# Build TypeScript files
+npm run build
+
+# Start the service
+npm start
+
+# Run tests directly (without Anvil setup)
+npm test
 ```
 
-### Anvil
+## License
 
-```shell
-$ anvil
-```
+This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
 
-### Deploy
+## Roadmap
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+- [ ] Docker containerization
+- [ ] Extend testing
