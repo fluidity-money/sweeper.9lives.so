@@ -1,26 +1,27 @@
 import { ethers, Log } from "ethers";
-import { BatchSweeper, IInfraMarket } from "./types/contracts";
+import { BatchSweeper } from "../types/contracts/BatchSweeper";
+import { IInfraMarket } from "../types/contracts/IInfraMarket";
 import {
   ActiveMarkets,
   ActiveLUT,
   EventLUT,
   InfraMarketState,
-} from "./types/market";
+} from "../types/market";
 import {
   TypedContractEvent,
-  TypedDeferredTopicFilter,
   TypedLogDescription,
-} from "./types/contracts/common";
+} from "../types/contracts/common";
 import {
   CallMadeEvent,
   CommitmentRevealedEvent,
   InfraMarketClosedEvent,
   MarketCreated2Event,
-} from "./types/contracts/IInfraMarket";
+} from "../types/contracts/IInfraMarket";
 import { TxQueue } from "./tx-queue";
 import { Logger } from "./logger";
 import { sleep } from "./utils";
-import { Config } from "./types/config";
+import { Config } from "../types/config";
+import { SET_TIMEOUT_THRESHOLD } from "./const";
 
 export class InfraMarketHandler extends Logger {
   #activeMarkets: ActiveMarkets = {};
@@ -48,8 +49,8 @@ export class InfraMarketHandler extends Logger {
 
     return status
       ? {
-          state: Number(status.currentState) as InfraMarketState,
-          remaining: Number(status.secsRemaining),
+          state: Number(status[0]) as InfraMarketState,
+          remaining: Number(status[1]),
         }
       : undefined;
   };
@@ -78,28 +79,43 @@ export class InfraMarketHandler extends Logger {
 
       const { state, remaining } = status;
 
-      if (state === InfraMarketState.Closed) {
-        continue;
+      if (state !== InfraMarketState.Closed) {
+        this.#activeMarkets[market.args.tradingAddr] ??= { outcomes: [] };
       }
 
-      if (state === InfraMarketState.Callable) {
-        if (remaining === 0) {
-          this.#escape(market.args.tradingAddr);
-          continue;
-        }
+      switch (state) {
+        case InfraMarketState.Callable:
+          if (remaining === 0) {
+            this.#escape(market.args.tradingAddr);
+          } else {
+            this.#scheduleEscape(market.args.tradingAddr, remaining);
+          }
+          break;
 
-        this.#activeMarkets[market.args.tradingAddr].escapeTimer = setTimeout(
-          () => this.#escape(market.args.tradingAddr),
-          remaining * 1000
-        );
+        case InfraMarketState.Whinging:
+          this.#scheduleClose(market.args.tradingAddr);
+          break;
+
+        case InfraMarketState.Declarable:
+          this.#ifDeclare(market.args.tradingAddr);
+          break;
+
+        case InfraMarketState.Closable:
+          // TODO: closable and close are the same, check that campaign not closed here
+          this.#close(market.args.tradingAddr);
+          break;
+
+        case InfraMarketState.Sweeping:
+          this.#ifSweep(market.args.tradingAddr);
+          break;
       }
     }
   };
 
   #initEventLUT = async () => {
     for (const [filter, handler] of this.#eventLUT) {
-      const f = (await filter.getTopicFilter()) as string[];
-      this.#activeEventLUT[f[0]] = handler;
+      const topics = ethers.id(filter.fragment.format());
+      this.#activeEventLUT[topics] = handler;
     }
 
     this.wssProvider.on({ address: this.infraMarket.target }, (log: Log) => {
@@ -225,9 +241,12 @@ export class InfraMarketHandler extends Logger {
     if (s?.state === InfraMarketState.Whinging) {
       clearTimeout(this.#activeMarkets[tradingAddr]?.closeTimer);
 
-      this.#activeMarkets[tradingAddr].closeTimer = setTimeout(() => {
-        this.#close(tradingAddr);
-      }, s?.remaining * 1000);
+      this.#activeMarkets[tradingAddr].closeTimer = setTimeout(
+        () => {
+          this.#close(tradingAddr);
+        },
+        s.remaining * 1000 + SET_TIMEOUT_THRESHOLD
+      );
     }
   };
 
@@ -238,6 +257,14 @@ export class InfraMarketHandler extends Logger {
     }
   };
 
+  #scheduleEscape = (tradingAddr: string, remaining: number) => {
+    clearTimeout(this.#activeMarkets[tradingAddr]?.escapeTimer);
+    this.#activeMarkets[tradingAddr].escapeTimer = setTimeout(
+      () => this.#escape(tradingAddr),
+      remaining * 1000 + SET_TIMEOUT_THRESHOLD
+    );
+  };
+
   readonly #eventLUT: EventLUT = [
     [this.infraMarket.filters.MarketCreated2(), this.#onCreate],
     [this.infraMarket.filters.CallMade(), this.#onCall],
@@ -245,4 +272,6 @@ export class InfraMarketHandler extends Logger {
     [this.infraMarket.filters.CampaignEscaped(), this.#onRemove],
     [this.infraMarket.filters.CommitmentRevealed(), this.#onReveal],
   ];
+
+  destroy = () => this.wssProvider.destroy();
 }

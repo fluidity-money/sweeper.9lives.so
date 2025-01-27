@@ -1,17 +1,30 @@
 {
+  "name": "sweeper",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "typegen": "typechain --target ethers-v6 --out-dir service/types/contracts service/abi/*.json"
+    "test": "mocha -r tsx test/market.test.ts --timeout 10000"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
     "dotenv": "^16.4.7",
     "ethers": "^6.13.5",
+    "mocha": "^10.3.0",
+    "sinon": "^19.0.2",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
     "winston": "^3.17.0"
   },
   "devDependencies": {
     "@typechain/ethers-v6": "^0.5.1",
-    "tsx": "^4.19.2",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.11.17",
+    "@types/sinon": "^17.0.3",
     "typechain": "^8.3.2"
   }
 }

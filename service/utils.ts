@@ -1,10 +1,5 @@
-import {
-  ContractTransactionResponse,
-  ethers,
-  TransactionRequest,
-  TransactionResponse,
-} from "ethers";
-import { Config } from "./types/config";
+import { ethers, TransactionRequest } from "ethers";
+import { Config } from "../types/config";
 
 const mustEnv = <T>(env: string): T => {
   if (process.env[env] === undefined) {
@@ -15,25 +10,21 @@ const mustEnv = <T>(env: string): T => {
 };
 
 export const getConfig = (): Config => ({
-  RPC_URL: mustEnv("RPC_URL"),
-  WSS_URL: mustEnv("WSS_URL"),
-  INFRA_MARKET_ADDRESS: mustEnv("INFRA_MARKET_ADDRESS"),
-  BATCH_SWEEPER_ADDRESS: mustEnv("BATCH_SWEEPER_ADDRESS"),
-  ACTOR_PRIVATE_KEY: mustEnv("ACTOR_PRIVATE_KEY"),
-  GAS_RATIO: BigInt(Number(process.env.GAS_RATIO)) || 20n,
-  CONFIRMATIONS: Number(process.env.CONFIRMATIONS) || 1,
-  RETRY_INTERVAL: Number(process.env.RETRY_INTERVAL) || 1000,
+  RPC_URL: process.env.SUPERPOSITION_RPC_URL!,
+  WSS_URL: process.env.SUPERPOSITION_WSS_URL!,
+  INFRA_MARKET_ADDRESS: process.env.INFRA_MARKET_IMPL!,
+  BATCH_SWEEPER_ADDRESS: process.env.BATCH_SWEEPER_IMPL!,
+  ACTOR_PRIVATE_KEY: process.env.PRIVATE_KEY!,
+  GAS_RATIO: BigInt(process.env.GAS_RATIO || 1),
+  CONFIRMATIONS: Number(process.env.CONFIRMATIONS || 1),
+  RETRY_INTERVAL: Number(process.env.RETRY_INTERVAL || 1000),
 });
 
 export class AsyncNonceWallet extends ethers.Wallet {
-  private baseNonce = 0;
-  private nonceOffset = 0;
+  baseNonce = 0;
+  nonceOffset = 0;
 
-  constructor(privateKey: string, provider: ethers.JsonRpcProvider) {
-    super(privateKey, provider);
-  }
-
-  async initialize() {
+  async init() {
     this.baseNonce = await this.provider!.getTransactionCount(
       this.address,
       "pending"
@@ -51,6 +42,7 @@ export const sleep = (ms: number) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 export const waitBlock =
-  (confirmations: number) =>
-  (tx: ContractTransactionResponse | TransactionResponse) =>
-    tx.wait(confirmations);
+  (confirmations: number) => async (tx: ethers.TransactionResponse) => {
+    const receipt = await tx.wait(confirmations);
+    return receipt;
+  };

@@ -1,6 +1,7 @@
 node_modules
+dist
 .env
-service/types/contracts/
-dist/
-out/
-cache/
+cache
+out
+types/contracts
+abi

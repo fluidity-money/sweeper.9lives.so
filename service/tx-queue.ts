@@ -1,18 +1,20 @@
 import { ContractTransaction, ethers } from "ethers";
-import { Config } from "./types/config";
-import { Pushable, Writable } from "./types/tx-queue";
+import { Config } from "../types/config";
+import { Pushable, Writable } from "../types/tx-queue";
 import { AsyncNonceWallet, sleep, waitBlock } from "./utils";
-import { TypedContractMethod } from "./types/contracts/common";
+import { TypedContractMethod } from "../types/contracts/common";
 import { Logger } from "./logger";
 
 export class TxQueue extends Logger {
   private queue: Pushable[] = [];
   public actor: AsyncNonceWallet;
 
-  constructor(private config: Config) {
+  constructor(
+    private config: Config,
+    asyncWallet: AsyncNonceWallet
+  ) {
     super();
-    const provider = new ethers.JsonRpcProvider(config.RPC_URL);
-    this.actor = new AsyncNonceWallet(config.ACTOR_PRIVATE_KEY, provider);
+    this.actor = asyncWallet;
     this.#start();
   }
 
@@ -40,22 +42,20 @@ export class TxQueue extends Logger {
 
   #estimate = async (txBody: ContractTransaction) => {
     const fee = await this.actor.provider!.getFeeData();
-    // TODO: check fees logic for arbitrum nitro
+    const extraFee: any = {};
 
-    const extraFee = { ...fee };
-
-    if (fee.maxFeePerGas) {
+    if (fee.maxFeePerGas && fee.maxPriorityFeePerGas) {
       const extraTip =
-        fee.maxPriorityFeePerGas! +
-        (fee.maxPriorityFeePerGas! * this.config.GAS_RATIO) / 100n;
+        fee.maxPriorityFeePerGas +
+        (fee.maxPriorityFeePerGas * this.config.GAS_RATIO) / 100n;
 
       extraFee.maxFeePerGas = fee.maxFeePerGas + extraTip;
       extraFee.maxPriorityFeePerGas = extraTip;
-    } else {
+    } else if (fee.gasPrice) {
       const extraTip =
-        fee.gasPrice! + (fee.gasPrice! * this.config.GAS_RATIO) / 100n;
+        fee.gasPrice + (fee.gasPrice * this.config.GAS_RATIO) / 100n;
 
-      extraFee.gasPrice = fee.gasPrice! + extraTip;
+      extraFee.gasPrice = extraTip;
     }
 
     return { ...txBody, ...extraFee };
@@ -99,4 +99,6 @@ export class TxQueue extends Logger {
       return;
     }
   };
+
+  flush = () => (this.queue = []);
 }

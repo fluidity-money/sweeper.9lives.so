@@ -1,12 +1,10 @@
 import dotenv from "dotenv";
 import { AsyncNonceWallet, getConfig } from "./utils";
 import { ethers } from "ethers";
-import { TxQueue } from "./tx-queue";
 import { InfraMarketHandler } from "./infra-market-handler";
-import {
-  BatchSweeper__factory,
-  IInfraMarket__factory,
-} from "./types/contracts";
+import { TxQueue } from "./tx-queue";
+import { BatchSweeper__factory } from "../types/contracts/factories/BatchSweeper__factory";
+import { IInfraMarket__factory } from "../types/contracts/factories/IInfraMarket__factory";
 
 dotenv.config();
 
@@ -27,7 +25,9 @@ const batchSweeperContract = BatchSweeper__factory.connect(
   actor
 );
 
-const txQueue = new TxQueue(config);
+const asyncActor = new AsyncNonceWallet(config.ACTOR_PRIVATE_KEY, rpcProvider);
+
+const txQueue = new TxQueue(config, asyncActor);
 
 const infraMarketHandler = new InfraMarketHandler(
   infraMarketContract,
@@ -38,6 +38,7 @@ const infraMarketHandler = new InfraMarketHandler(
 );
 
 const main = async () => {
+  await asyncActor.init();
   await infraMarketHandler.init();
 };
 
