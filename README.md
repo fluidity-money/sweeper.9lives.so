@@ -99,3 +99,4 @@ This project is licensed under the MIT License. See [LICENSE](./LICENSE) for det
 
 - [ ] Docker containerization
 - [ ] Extend testing
+- [ ] Add epoches management in case of close, declare

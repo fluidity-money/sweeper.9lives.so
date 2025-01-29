@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "../contracts/IInfraMarket.sol";
+import "forge-std/console.sol";
 
 contract MockInfraMarket is IInfraMarket {
     struct EpochDetails {
@@ -159,8 +160,6 @@ contract MockInfraMarket is IInfraMarket {
         return (InfraMarketState.Sweeping, 0);
     }
 
-    // [Additional helper functions and mock-specific overrides would follow]
-
     function curOutcomeVestedArb(
         address trading,
         bytes8 outcome
@@ -313,22 +312,26 @@ contract MockInfraMarket is IInfraMarket {
         return true;
     }
 
-    // ... existing code ...
-
     function call(
         address tradingAddr,
         bytes8 winner0,
         address incentiveRecipient
     ) external override returns (uint256) {
+        console.log("call");
+        console.log("now", block.timestamp);
+        console.log("begins", campaign_call_begins[tradingAddr]);
+        console.log("ends", campaign_call_deadline[tradingAddr]);
+
         require(enabled, "Not enabled");
         require(campaign_call_deadline[tradingAddr] != 0, "Not registered");
         require(
             block.timestamp > campaign_call_begins[tradingAddr],
             "Not inside calling period"
         );
+
         require(
             block.timestamp < campaign_call_deadline[tradingAddr],
-            "Past calling deadline"
+            "Past deadline"
         );
         require(winner0 != 0, "Bad winner");
 
@@ -433,5 +436,7 @@ contract MockInfraMarket is IInfraMarket {
         require(commit != 0, "Zero commit");
 
         e.commitments[msg.sender] = commit;
+
+        emit Committed(tradingAddr, msg.sender, commit);
     }
 }

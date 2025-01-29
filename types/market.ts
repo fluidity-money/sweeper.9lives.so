@@ -17,13 +17,9 @@ export enum InfraMarketState {
 
 export type ActiveMarkets = {
   [tradingAddr: string]: {
-    outcomes: string[];
-    reveals?: {
-      [committerAddr: string]: string;
-    };
-    declared?: boolean;
     escapeTimer?: NodeJS.Timeout;
     closeTimer?: NodeJS.Timeout;
+    declareTimer?: NodeJS.Timeout;
   };
 };
 

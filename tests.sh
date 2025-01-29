@@ -1,11 +1,27 @@
 #!/bin/bash
+
+# Parse arguments
+CONSOLE_FLAG=false
+for arg in "$@"; do
+    case $arg in
+        --console)
+            CONSOLE_FLAG=true
+            shift
+            ;;
+    esac
+done
+
 forge build
 ./typegen.sh
 
 start_anvil() {
     pkill -f anvil
 
-    anvil --port 8545 > /dev/null 2>&1 &
+    if [ "$CONSOLE_FLAG" = true ]; then
+        RUST_LOG=node::console anvil --port 8545 --color always --silent &
+    else
+        anvil --port 8545 --color always --silent &
+    fi
     ANVIL_PID=$!
 
     while ! lsof -i:8545; do

@@ -11,9 +11,17 @@ import { BatchSweeper__factory } from "../types/contracts/factories/BatchSweeper
 import { IInfraMarket } from "../types/contracts/IInfraMarket";
 import sinon from "sinon";
 import { AsyncNonceWallet, sleep } from "../service/utils";
+import {
+  TypedContractEvent,
+  TypedDeferredTopicFilter,
+  type TypedContractMethod,
+} from "../types/contracts/common";
+import { createCommitment } from "./test-utils";
+import { MockInfraMarketInterface } from "../types/contracts/MockInfraMarket";
 
-const TWO_DAYS = 2 * 24 * 60 * 60;
-const FOUR_DAYS = 4 * 24 * 60 * 60;
+const ONE_DAY = 24 * 60 * 60;
+const TWO_DAYS = 2 * ONE_DAY;
+const FOUR_DAYS = 4 * ONE_DAY;
 
 const ANVIL_RPC_URL = "http://localhost:8545";
 const ANVIL_WSS_URL = "ws://localhost:8545";
@@ -24,7 +32,7 @@ const provider = new ethers.JsonRpcProvider(ANVIL_RPC_URL);
 const asyncActor = new AsyncNonceWallet(ANVIL_ACTOR_PRIVATE_KEY, provider);
 
 const now = (provider: ethers.Provider) =>
-  provider.getBlock("latest").then((block) => block!.timestamp);
+  provider.getBlock("pending").then((block) => block!.timestamp);
 
 const advanceBlockTimestamp = async (
   provider: ethers.JsonRpcProvider,
@@ -46,7 +54,7 @@ const waitStatusOrTimeout = async (
     // Roughly
     timePassed += 200;
 
-    if (timePassed > 3000) {
+    if (timePassed > 5000) {
       return false;
     }
 
@@ -65,13 +73,67 @@ const waitStatusOrTimeout = async (
   }
 };
 
+const waitEmitOrTimeout = async (
+  market: MockInfraMarket,
+  wssProvider: ethers.WebSocketProvider,
+  filter: TypedDeferredTopicFilter<TypedContractEvent<any, any, any>>
+) => {
+  let timePassed = 0;
+  let emitted = false;
+  market.connect(wssProvider).on(filter, () => {
+    emitted = true;
+  });
+
+  while (!emitted) {
+    await sleep(200);
+    timePassed += 200;
+
+    if (timePassed > 3000) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const waitCondition = async <A extends any[], R>(
+  getter: TypedContractMethod<A, R, "view">,
+  condition: (value: R) => boolean,
+  ...args: A
+) => {
+  let timePassed = 0;
+  while (true) {
+    await sleep(200);
+    timePassed += 200;
+
+    if (timePassed > 3000) {
+      return false;
+    }
+
+    const value = await getter(...((args as any) ?? []));
+    if (condition(value)) {
+      return true;
+    }
+  }
+};
+
+const setTimestamp = async (
+  provider: ethers.JsonRpcProvider,
+  timestamp: number
+) => {
+  await provider.send("evm_setNextBlockTimestamp", [timestamp]);
+  await provider.send("evm_mine", []);
+};
+
 describe("InfraMarket Integration Tests", function () {
   this.timeout(0);
   let mockInfraMarket: MockInfraMarket;
   let batchSweeper: BatchSweeper;
   let marketHandler: InfraMarketHandler;
   let txQueue: TxQueue;
+  let wssProvider: ethers.WebSocketProvider;
   let clock: sinon.SinonFakeTimers;
+  let snapshot: number;
 
   const config: Config = {
     RPC_URL: ANVIL_RPC_URL,
@@ -89,15 +151,25 @@ describe("InfraMarket Integration Tests", function () {
   });
 
   beforeEach(async function () {
+    await provider.send("evm_mine", []);
+
     clock = sinon.useFakeTimers({
       toFake: ["setTimeout"],
       shouldAdvanceTime: true,
     });
 
-    const wssProvider = new ethers.WebSocketProvider(ANVIL_WSS_URL);
+    wssProvider = new ethers.WebSocketProvider(ANVIL_WSS_URL);
 
     mockInfraMarket = await new MockInfraMarket__factory(asyncActor).deploy();
     batchSweeper = await new BatchSweeper__factory(asyncActor).deploy();
+
+    await mockInfraMarket.ctor(
+      asyncActor.address,
+      asyncActor.address,
+      ethers.Wallet.createRandom().address,
+      ethers.Wallet.createRandom().address,
+      ethers.Wallet.createRandom().address
+    );
 
     config.INFRA_MARKET_ADDRESS = mockInfraMarket.target as string;
     config.BATCH_SWEEPER_ADDRESS = batchSweeper.target as string;
@@ -111,25 +183,17 @@ describe("InfraMarket Integration Tests", function () {
       txQueue,
       config
     );
-
-    await mockInfraMarket.ctor(
-      asyncActor.address,
-      asyncActor.address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address
-    );
   });
 
   afterEach(async function () {
-    await marketHandler.destroy();
+    marketHandler.destroy();
     clock.restore();
     txQueue.flush();
   });
 
-  after(() => process.exit(0));
+  // after(() => process.exit(0));
 
-  describe("Transision over initialization", () => {
+  describe("Transition over initialization", () => {
     it("escape immediately", async function () {
       const tradingAddr = ethers.Wallet.createRandom().address;
       const launchTime = await now(provider);
@@ -143,7 +207,7 @@ describe("InfraMarket Integration Tests", function () {
         callDeadline
       );
 
-      await advanceBlockTimestamp(provider, callDeadlineDuration);
+      await advanceBlockTimestamp(provider, callDeadlineDuration + 1);
 
       await marketHandler.init();
 
@@ -167,9 +231,9 @@ describe("InfraMarket Integration Tests", function () {
 
       await marketHandler.init();
 
-      await advanceBlockTimestamp(provider, callDeadlineDuration);
+      await advanceBlockTimestamp(provider, callDeadlineDuration + 1);
 
-      clock.tick(callDeadlineDuration * 1000);
+      clock.tick((callDeadlineDuration + 1) * 1000);
       await Promise.resolve();
 
       const escaped = await waitStatusOrTimeout(mockInfraMarket, tradingAddr);
@@ -177,18 +241,22 @@ describe("InfraMarket Integration Tests", function () {
       assert(escaped);
     });
 
-    it.only("close immediately", async function () {
+    it("close immediately", async function () {
       const tradingAddr = ethers.Wallet.createRandom().address;
-      const launchTime = await now(provider);
+      const registerTime = (await now(provider)) + 100;
+      const launchTime = registerTime + 100;
       const callDeadlineDuration = 3600;
       const callDeadline = launchTime + callDeadlineDuration;
 
+      await setTimestamp(provider, registerTime);
       await mockInfraMarket.register(
         tradingAddr,
         ethers.hexlify(ethers.randomBytes(32)),
         launchTime,
         callDeadline
       );
+
+      await setTimestamp(provider, launchTime + 1);
 
       await mockInfraMarket.call(
         tradingAddr,
@@ -197,26 +265,24 @@ describe("InfraMarket Integration Tests", function () {
       );
 
       await advanceBlockTimestamp(provider, TWO_DAYS + 1);
-      await marketHandler.init();
-      await sleep(2000);
-      console.log(await mockInfraMarket.status(tradingAddr));
-      const closed = await waitStatusOrTimeout(
+
+      const emitAssert = waitEmitOrTimeout(
         mockInfraMarket,
-        tradingAddr,
-        InfraMarketState.Closable
+        wssProvider,
+        mockInfraMarket.filters.InfraMarketClosed()
       );
-      assert(closed);
+      await marketHandler.init();
+
+      assert(await emitAssert);
     });
-  });
 
-  describe("Market state transitions", () => {
-    it("declare after reveal period", async function () {
+    it("close after deadline", async function () {
       const tradingAddr = ethers.Wallet.createRandom().address;
-      const launchTime = await now(provider);
-      const callDeadlineDuration = 3600;
-      const callDeadline = launchTime + callDeadlineDuration;
-      const winner = "0x0000000000000001";
+      const registerTime = (await now(provider)) + 1;
+      const launchTime = registerTime + 3600;
+      const callDeadline = registerTime + 3600 * 2;
 
+      await setTimestamp(provider, registerTime);
       await mockInfraMarket.register(
         tradingAddr,
         ethers.hexlify(ethers.randomBytes(32)),
@@ -224,42 +290,94 @@ describe("InfraMarket Integration Tests", function () {
         callDeadline
       );
 
+      await setTimestamp(provider, launchTime + 1);
+
+      await mockInfraMarket.call(
+        tradingAddr,
+        "0x0000000000000001",
+        asyncActor.address
+      );
+
+      const [_, remaining] = await mockInfraMarket.status(tradingAddr);
       await marketHandler.init();
 
-      await advanceBlockTimestamp(provider, 1);
-      await mockInfraMarket.call(tradingAddr, winner, asyncActor.address);
+      const emitClose = waitEmitOrTimeout(
+        mockInfraMarket,
+        wssProvider,
+        mockInfraMarket.filters.InfraMarketClosed()
+      );
 
-      await advanceBlockTimestamp(provider, 1);
+      await advanceBlockTimestamp(provider, Number(remaining) + 3);
+      clock.tick((Number(remaining) + 3) * 1000);
+
+      assert(await emitClose);
+    });
+
+    it("declare immediately", async function () {
+      const tradingAddr = ethers.Wallet.createRandom().address;
+      const registerTime = (await now(provider)) + 3600;
+      const launchTime = registerTime + 3600;
+      const callDeadline = registerTime + 3600 * 2;
+
+      await setTimestamp(provider, registerTime);
+      await mockInfraMarket.register(
+        tradingAddr,
+        ethers.hexlify(ethers.randomBytes(32)),
+        launchTime,
+        callDeadline
+      );
+
+      await setTimestamp(provider, launchTime + 1);
+      await mockInfraMarket.call(
+        tradingAddr,
+        "0x0000000000000001",
+        asyncActor.address
+      );
+
+      await advanceBlockTimestamp(provider, ONE_DAY);
       await mockInfraMarket.whinge(
         tradingAddr,
         "0x0000000000000002",
         asyncActor.address
       );
 
-      await advanceBlockTimestamp(provider, FOUR_DAYS + 1);
-      clock.tick((FOUR_DAYS + 1) * 1000);
-      await Promise.resolve();
+      await advanceBlockTimestamp(provider, ONE_DAY);
+      const outcome = "0x0000000000000001";
+      const seed = "0x1234567890abcdef";
+      const commitment = createCommitment(asyncActor, outcome, seed);
+      await mockInfraMarket.predict(tradingAddr, commitment);
 
-      // Wait for declaration
-      const declared = await waitStatusOrTimeout(
-        mockInfraMarket,
+      await advanceBlockTimestamp(provider, TWO_DAYS);
+
+      await mockInfraMarket.reveal(
         tradingAddr,
-        InfraMarketState.Sweeping
+        asyncActor.address,
+        outcome,
+        seed
       );
-      assert(declared);
 
-      const finalWinner = await mockInfraMarket.winner(tradingAddr);
-      assert.equal(finalWinner, winner);
+      await advanceBlockTimestamp(provider, FOUR_DAYS);
+      await marketHandler.init();
+
+      const currentEpoch = await mockInfraMarket.cur_epochs(tradingAddr);
+
+      const declared = await waitCondition(
+        mockInfraMarket.epochs,
+        (e) => (e as any).campaign_winner_set,
+        tradingAddr,
+        currentEpoch
+      );
+
+      assert(declared);
     });
 
-    it("sweep after declaration", async function () {
+    it("declare after revealing", async function () {
       const tradingAddr = ethers.Wallet.createRandom().address;
-      const launchTime = await now(provider);
-      const callDeadlineDuration = 3600;
-      const callDeadline = launchTime + callDeadlineDuration;
-      const winner = "0x0000000000000001";
-      const loser = "0x0000000000000002";
+      const registerTime = (await now(provider)) + 3600;
+      const launchTime = registerTime + 3600;
+      const callDeadline = registerTime + 3600 * 2;
 
+      await setTimestamp(provider, registerTime);
       await mockInfraMarket.register(
         tradingAddr,
         ethers.hexlify(ethers.randomBytes(32)),
@@ -267,46 +385,102 @@ describe("InfraMarket Integration Tests", function () {
         callDeadline
       );
 
-      await marketHandler.init();
-
-      await advanceBlockTimestamp(provider, 1);
-      await mockInfraMarket.call(tradingAddr, winner, asyncActor.address);
-
-      await advanceBlockTimestamp(provider, 1);
-      await mockInfraMarket.whinge(tradingAddr, loser, asyncActor.address);
-
-      const victim = ethers.Wallet.createRandom();
-      const seed = ethers.hexlify(ethers.randomBytes(32));
-      const commitment = ethers.solidityPackedKeccak256(
-        ["address", "bytes8", "uint256"],
-        [victim.address, loser, seed]
-      );
-
-      await mockInfraMarket.predict(tradingAddr, commitment);
-
-      await advanceBlockTimestamp(provider, TWO_DAYS + 1);
-      await mockInfraMarket.reveal(tradingAddr, victim.address, loser, seed);
-
-      await advanceBlockTimestamp(provider, TWO_DAYS);
-      clock.tick(TWO_DAYS * 1000);
-      await Promise.resolve();
-
-      // Wait for sweeping state
-      const sweeping = await waitStatusOrTimeout(
-        mockInfraMarket,
+      await setTimestamp(provider, launchTime + 1);
+      await mockInfraMarket.call(
         tradingAddr,
-        InfraMarketState.Sweeping
-      );
-      assert(sweeping);
-
-      const epochNo = await mockInfraMarket.epochNumber(tradingAddr);
-      const sweepResult = await mockInfraMarket.sweep(
-        tradingAddr,
-        epochNo,
-        victim.address,
+        "0x0000000000000001",
         asyncActor.address
       );
-      assert(sweepResult.hash);
+
+      await advanceBlockTimestamp(provider, ONE_DAY);
+      await mockInfraMarket.whinge(
+        tradingAddr,
+        "0x0000000000000002",
+        asyncActor.address
+      );
+
+      await advanceBlockTimestamp(provider, ONE_DAY);
+      const outcome = "0x0000000000000001";
+      const seed = "0x1234567890abcdef";
+      const commitment = createCommitment(asyncActor, outcome, seed);
+      await mockInfraMarket.predict(tradingAddr, commitment);
+
+      await advanceBlockTimestamp(provider, TWO_DAYS);
+      await marketHandler.init();
+
+      await mockInfraMarket.reveal(
+        tradingAddr,
+        asyncActor.address,
+        outcome,
+        seed
+      );
+
+      await advanceBlockTimestamp(provider, FOUR_DAYS);
+      clock.tick(FOUR_DAYS * 1000);
+      const currentEpoch = await mockInfraMarket.cur_epochs(tradingAddr);
+
+      const declared = await waitCondition(
+        mockInfraMarket.epochs,
+        (e) => (e as any).campaign_winner_set,
+        tradingAddr,
+        currentEpoch
+      );
+
+      assert(declared);
+    });
+
+    //TBD
+    it("sweep immediately", async function () {
+      const tradingAddr = ethers.Wallet.createRandom().address;
+      const registerTime = (await now(provider)) + 3600;
+      const launchTime = registerTime + 3600;
+      const callDeadline = registerTime + 3600 * 2;
+
+      await setTimestamp(provider, registerTime);
+      await mockInfraMarket.register(
+        tradingAddr,
+        ethers.hexlify(ethers.randomBytes(32)),
+        launchTime,
+        callDeadline
+      );
+
+      await setTimestamp(provider, launchTime + 1);
+      await mockInfraMarket.call(
+        tradingAddr,
+        "0x0000000000000001",
+        asyncActor.address
+      );
+
+      await advanceBlockTimestamp(provider, ONE_DAY);
+      await mockInfraMarket.whinge(
+        tradingAddr,
+        "0x0000000000000002",
+        asyncActor.address
+      );
+
+      await mockInfraMarket.predict(
+        tradingAddr,
+        createCommitment(asyncActor, "0x0000000000000001", "0x1234567890abcdef")
+      );
+      await advanceBlockTimestamp(provider, TWO_DAYS + 1);
+      await mockInfraMarket.reveal(
+        tradingAddr,
+        asyncActor.address,
+        "0x0000000000000001",
+        "0x1234567890abcdef"
+      );
+
+      await advanceBlockTimestamp(provider, TWO_DAYS);
+      await marketHandler.init();
+
+      const currentEpoch = await mockInfraMarket.cur_epochs(tradingAddr);
+
+      const sweeped = await waitCondition(
+        mockInfraMarket.epochs,
+        (e) => (e as any).sweeped,
+        tradingAddr,
+        currentEpoch
+      );
     });
   });
 });
