@@ -10,11 +10,11 @@ const mustEnv = <T>(env: string): T => {
 };
 
 export const getConfig = (): Config => ({
-  RPC_URL: mustEnv("SUPERPOSITION_RPC_URL"),
-  WSS_URL: mustEnv("SUPERPOSITION_WSS_URL"),
-  INFRA_MARKET_ADDRESS: mustEnv("INFRA_MARKET_IMPL"),
-  BATCH_SWEEPER_ADDRESS: mustEnv("BATCH_SWEEPER_IMPL"),
-  ACTOR_PRIVATE_KEY: mustEnv("PRIVATE_KEY"),
+  RPC_URL: mustEnv("RPC_URL"),
+  WSS_URL: mustEnv("WSS_URL"),
+  INFRA_MARKET_ADDRESS: mustEnv("INFRA_MARKET_ADDRESS"),
+  BATCH_SWEEPER_ADDRESS: mustEnv("BATCH_SWEEPER_ADDRESS"),
+  ACTOR_PRIVATE_KEY: mustEnv("ACTOR_PRIVATE_KEY"),
   GAS_RATIO: BigInt(process.env.GAS_RATIO || 1),
   CONFIRMATIONS: Number(process.env.CONFIRMATIONS || 1),
   RETRY_INTERVAL: Number(process.env.RETRY_INTERVAL || 1000),
