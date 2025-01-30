@@ -42,20 +42,32 @@ npm start
 
 ## Configuration
 
+#### BatchSweeper deployments
+
+| Network | Address                                    |
+| ------- | ------------------------------------------ |
+| Testnet | 0x17309B2d1BE2835C9c15631A3bD90Ce8bEf1F5F8 |
+| Mainnet | 0x7771Af089C9c06689743529da48744fC9AFbB89D |
+
 ### Environment Variables
 
 ```ini
 # Required
-RPC_URL="arbitrum_rpc_endpoint"
-WSS_URL="arbitrum_websocket_endpoint"
+RPC_URL="superposition_rpc_endpoint"
+WSS_URL="superposition_websocket_endpoint"
 INFRA_MARKET_ADDRESS="0x...market_address"
-BATCH_SWEEPER_ADDRESS="0x...sweeper_address"
+BATCH_SWEEPER_ADDRESS="0x...batch_sweeper_address"
 ACTOR_PRIVATE_KEY="operator_wallet_key"
 
-# Network settings
-GAS_RATIO=20              # Base gas multiplier
-CONFIRMATIONS=5              # Required block confirmations
-RETRY_INTERVAL=2000       # Retry interval in milliseconds
+# Transaction settings
+GAS_RATIO=20                                     # Extra gas percent for transactions
+CONFIRMATIONS=5                                  # Required block confirmations
+RETRY_INTERVAL=2000                             # Retry interval in milliseconds
+MAX_RETRIES=3                                   # Maximum number of retry attempts
+
+# Health check settings
+HEARTBEAT_URL=""                                # Health check endpoint URL
+HEARTBEAT_INTERVAL=60000                        # Health check interval in milliseconds
 ```
 
 ## Testing
