@@ -18,6 +18,7 @@ export const getConfig = (): Config => ({
   GAS_RATIO: BigInt(process.env.GAS_RATIO || 1),
   CONFIRMATIONS: Number(process.env.CONFIRMATIONS || 1),
   RETRY_INTERVAL: Number(process.env.RETRY_INTERVAL || 1000),
+  MAX_RETRIES: Number(process.env.MAX_RETRIES || 5),
 });
 
 export class AsyncNonceWallet extends ethers.Wallet {
