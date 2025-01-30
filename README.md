@@ -99,4 +99,4 @@ This project is licensed under the MIT License. See [LICENSE](./LICENSE) for det
 
 - [x] Docker containerization
 - [x] Extend testing
-- [ ] Add epoches management in case of close, declare
+- [ ] Add epoches management in case of campaign reopening
