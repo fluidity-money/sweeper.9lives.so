@@ -7,4 +7,5 @@ export type Config = {
   GAS_RATIO: bigint;
   CONFIRMATIONS: number;
   RETRY_INTERVAL: number;
+  MAX_RETRIES: number;
 };

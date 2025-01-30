@@ -240,6 +240,12 @@ interface IInfraMarket {
         uint256 bal
     );
 
+    event Declared(
+        address indexed trading,
+        bytes8 indexed winningOutcome,
+        address indexed feeRecipient
+    );
+
     /// @notice CampaignEscaped, because a campaign is in an
     /// indeterminate state! The DAO may be needed to step in.
     event CampaignEscaped(address indexed tradingAddr);

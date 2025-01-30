@@ -5,6 +5,8 @@ import "../contracts/IInfraMarket.sol";
 import "forge-std/console.sol";
 
 contract MockInfraMarket is IInfraMarket {
+    event MockSweeped(address tradingAddr, uint256 epochNo, address victim);
+
     struct EpochDetails {
         uint64 campaign_when_whinged;
         bytes8 campaign_whinger_preferred_winner;
@@ -228,6 +230,8 @@ contract MockInfraMarket is IInfraMarket {
             e.redeemable_pot_existing = 1000e18; // Mock value for tests
         }
 
+        emit MockSweeped(tradingAddr, epochNo, victim);
+
         return fee;
     }
 
@@ -296,6 +300,8 @@ contract MockInfraMarket is IInfraMarket {
         if (dao_money >= incentives) {
             dao_money -= incentives;
         }
+
+        emit Declared(tradingAddr, finalWinner, msg.sender);
 
         return incentives;
     }

@@ -26,8 +26,15 @@ export class TxQueue extends Logger {
         return;
       }
 
-      // TODO: add retry logic
-      await thisService.#send(intent);
+      let cooldown = thisService.config.RETRY_INTERVAL;
+      for (let i = 0; i < thisService.config.MAX_RETRIES; i++) {
+        const success = await thisService.#send(intent);
+        if (success) {
+          break;
+        }
+        cooldown *= 2;
+        await sleep(cooldown);
+      }
 
       setImmediate(() => sendLoop(thisService));
     })(this);
@@ -67,8 +74,7 @@ export class TxQueue extends Logger {
     const txBody = await buildResp.catch(this.error);
     if (!txBody) {
       this.error(`Failed to build transaction ${intent.func.name}`);
-      await sleep(1000);
-      return;
+      return false;
     }
 
     const tipReq = this.#estimate(txBody);
@@ -76,8 +82,7 @@ export class TxQueue extends Logger {
     const tipped = await tipReq.catch(this.error);
     if (!tipped) {
       this.error(`Failed to estimate transaction ${intent.func.name}`);
-      await sleep(1000);
-      return;
+      return false;
     }
 
     const txReq = this.actor.sendTransaction(tipped);
@@ -85,8 +90,7 @@ export class TxQueue extends Logger {
     const txResp = await txReq.catch(this.error);
     if (!txResp) {
       this.error(`Failed to send transaction ${intent.func.name}`);
-      await sleep(1000);
-      return;
+      return false;
     }
 
     const waitReq = await txReq
@@ -95,9 +99,9 @@ export class TxQueue extends Logger {
 
     if (!waitReq) {
       this.error(`Failed to wait for transaction ${intent.func.name}`);
-      await sleep(1000);
-      return;
+      return false;
     }
+    return true;
   };
 
   flush = () => (this.queue = []);

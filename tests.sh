@@ -29,8 +29,11 @@ start_anvil() {
     done
 }
 
+# Bypass anvil discrepancy of block.timestamp
 start_anvil
+npx mocha -r tsx test/market.test.ts --timeout 0
+kill $ANVIL_PID
 
-npm run test
-
+start_anvil
+npx mocha -r tsx test/market-full-flow.test.ts --timeout 0
 kill $ANVIL_PID
