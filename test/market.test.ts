@@ -36,7 +36,6 @@ describe("InfraMarketHandler Integration Tests", function () {
   let txQueue: TxQueue;
   let wssProvider: ethers.WebSocketProvider;
   let clock: sinon.SinonFakeTimers;
-  let snapshot: number;
 
   const config: Config = {
     RPC_URL: ANVIL_RPC_URL,
@@ -56,11 +55,15 @@ describe("InfraMarketHandler Integration Tests", function () {
     await asyncActor.init();
   });
 
+  after(async function () {
+    process.exit(0);
+  });
+
   beforeEach(async function () {
     await provider.send("evm_mine", []);
 
     clock = sinon.useFakeTimers({
-      toFake: ["setTimeout"],
+      toFake: ["setInterval"],
       shouldAdvanceTime: true,
     });
 

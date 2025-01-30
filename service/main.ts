@@ -41,7 +41,7 @@ const infraMarketHandler = new InfraMarketHandler(
 const main = async () => {
   await asyncActor.init();
   await infraMarketHandler.init();
-  heartbeat(config);
+  // heartbeat(config);
 };
 
 main();

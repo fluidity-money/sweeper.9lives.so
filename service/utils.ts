@@ -49,3 +49,20 @@ export const waitBlock =
     const receipt = await tx.wait(confirmations);
     return receipt;
   };
+
+export function setSecondsTimeout<
+  F extends (...args: A) => void,
+  A extends any[],
+>(callback: F, callbackArgs: A, seconds: number) {
+  let secondsCount = 0;
+  const timer = setInterval(function () {
+    secondsCount++;
+
+    if (secondsCount === seconds) {
+      clearInterval(timer);
+      callback(...callbackArgs);
+    }
+  }, 1000);
+
+  return timer;
+}
