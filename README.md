@@ -97,6 +97,6 @@ This project is licensed under the MIT License. See [LICENSE](./LICENSE) for det
 
 ## Roadmap
 
-- [ ] Docker containerization
-- [ ] Extend testing
+- [x] Docker containerization
+- [x] Extend testing
 - [ ] Add epoches management in case of close, declare

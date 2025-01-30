@@ -27,5 +27,3 @@ COPY tsconfig.json /sweeper/tsconfig.json
 RUN npm run build
 
 CMD ["node", "dist/service/main.js"]
-
-
