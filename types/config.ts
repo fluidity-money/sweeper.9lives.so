@@ -8,4 +8,6 @@ export type Config = {
   CONFIRMATIONS: number;
   RETRY_INTERVAL: number;
   MAX_RETRIES: number;
+  HEARTBEAT_URL: string;
+  HEARTBEAT_INTERVAL: number;
 };

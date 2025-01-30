@@ -10,15 +10,17 @@ const mustEnv = <T>(env: string): T => {
 };
 
 export const getConfig = (): Config => ({
-  RPC_URL: process.env.SUPERPOSITION_RPC_URL!,
-  WSS_URL: process.env.SUPERPOSITION_WSS_URL!,
-  INFRA_MARKET_ADDRESS: process.env.INFRA_MARKET_IMPL!,
-  BATCH_SWEEPER_ADDRESS: process.env.BATCH_SWEEPER_IMPL!,
-  ACTOR_PRIVATE_KEY: process.env.PRIVATE_KEY!,
+  RPC_URL: mustEnv("SUPERPOSITION_RPC_URL"),
+  WSS_URL: mustEnv("SUPERPOSITION_WSS_URL"),
+  INFRA_MARKET_ADDRESS: mustEnv("INFRA_MARKET_IMPL"),
+  BATCH_SWEEPER_ADDRESS: mustEnv("BATCH_SWEEPER_IMPL"),
+  ACTOR_PRIVATE_KEY: mustEnv("PRIVATE_KEY"),
   GAS_RATIO: BigInt(process.env.GAS_RATIO || 1),
   CONFIRMATIONS: Number(process.env.CONFIRMATIONS || 1),
   RETRY_INTERVAL: Number(process.env.RETRY_INTERVAL || 1000),
   MAX_RETRIES: Number(process.env.MAX_RETRIES || 5),
+  HEARTBEAT_URL: mustEnv("HEARTBEAT_URL"),
+  HEARTBEAT_INTERVAL: Number(process.env.HEARTBEAT_INTERVAL || 10000),
 });
 
 export class AsyncNonceWallet extends ethers.Wallet {

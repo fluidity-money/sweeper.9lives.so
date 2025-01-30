@@ -5,6 +5,7 @@ import { InfraMarketHandler } from "./infra-market-handler";
 import { TxQueue } from "./tx-queue";
 import { BatchSweeper__factory } from "../types/contracts/factories/BatchSweeper__factory";
 import { IInfraMarket__factory } from "../types/contracts/factories/IInfraMarket__factory";
+import { heartbeat } from "./heartbeat";
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ const infraMarketHandler = new InfraMarketHandler(
 const main = async () => {
   await asyncActor.init();
   await infraMarketHandler.init();
+  heartbeat(config);
 };
 
 main();

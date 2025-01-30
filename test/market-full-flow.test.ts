@@ -45,6 +45,8 @@ describe("InfraMarketHandler Integration Tests", function () {
     CONFIRMATIONS: 1,
     RETRY_INTERVAL: 1000,
     MAX_RETRIES: 1,
+    HEARTBEAT_URL: "",
+    HEARTBEAT_INTERVAL: 0,
   };
 
   before(async function () {
