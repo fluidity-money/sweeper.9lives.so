@@ -20,7 +20,7 @@ Automated transaction management system for 9Lives protocol campaigns. Handles c
 - [Foundry](https://book.getfoundry.sh/) (forge >= 0.2.0, anvil >= 0.2.0) for contract compilation and local testnet
 - Node.js v18+
 
-## Quick Start
+## Quick Start for deployment
 
 ```bash
 # Install dependencies
@@ -39,6 +39,25 @@ npm run build
 # Start service
 npm start
 ```
+
+## Running in docker
+
+1. Fill environment values:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Build Docker image:
+
+   ```bash
+   docker build -t sweeper .
+   ```
+
+3. Run service in detached mode:
+   ```bash
+   docker run -d sweeper
+   ```
 
 ## Configuration
 
